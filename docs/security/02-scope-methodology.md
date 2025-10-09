@@ -1,4 +1,4 @@
-Intentionally left blank.
+# Scope and Methodology
 
 ## Scope
 This assessment covers:
@@ -31,16 +31,14 @@ In-repo files reviewed as primary sources:
 - Threat modeling across contexts: local dev, server batch, embedded usage, user-supplied inputs
 
 ## Assumptions
-- Large codebase, concise outputs required
-- No internet access during analysis; process and templates prefer repository-grounded findings
-- Project currently has no .env variables defined
+- No .env variables are defined in this container
 - Users may utilize CPU-only or GPU-enabled environments
+- Model artifacts may be downloaded from the internet or loaded from local storage
 
 ## Tools and Acceptance
-- Use pip-audit/safety in CI to scan dependencies from requirements*.txt and install_requires
+- Use pip-audit or safety in CI to scan dependencies from requirements*.txt and install_requires
 - Generate CycloneDX SBOMs and attach to releases
 - Acceptance gates:
   - No open Criticals for release
   - Highs mitigated or with compensating controls
   - Mediums planned within 2 sprints; Lows in backlog
-

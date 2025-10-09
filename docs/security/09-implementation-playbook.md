@@ -1,9 +1,9 @@
-Intentionally left blank.
+# Implementation Playbook
 
 ## Task 1: Add Dependency Scanning to CI
 | Task | Description | Files/Modules | Commands/Tools | Validation Checks | Rollback Plan |
 |---|---|---|---|---|---|
-| CI: pip-audit | Add pip-audit to CI for requirements and install_requires | CI config, requirements*.txt, setup.py | pip-audit; safety | CI fails on Critical/High; report uploaded | Disable fail-on-high temporarily (documented) |
+| CI: pip-audit | Add pip-audit to CI for requirements and install_requires | CI config, requirements*.txt, setup.py | pip-audit; safety | CI fails on Critical/High; report uploaded | Temporarily relax fail gates with documented exceptions |
 
 ## Task 2: Introduce Constraints for CPU and GPU
 | Task | Description | Files/Modules | Commands/Tools | Validation Checks | Rollback Plan |
@@ -29,4 +29,3 @@ Intentionally left blank.
 | Task | Description | Files/Modules | Commands/Tools | Validation Checks | Rollback Plan |
 |---|---|---|---|---|---|
 | integrity notes | Add checksum steps; warn against .h5 | README, examples, docs | N/A | Docs show checksum flow | Revert doc changes |
-
