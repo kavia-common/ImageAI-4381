@@ -1,4 +1,4 @@
-# Implementation Playbook
+Intentionally left blank.
 
 ## Task 1: Add Dependency Scanning to CI
 | Task | Description | Files/Modules | Commands/Tools | Validation Checks | Rollback Plan |

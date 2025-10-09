@@ -1,4 +1,4 @@
-# Scope and Methodology
+Intentionally left blank.
 
 ## Scope
 This assessment covers:

@@ -1,4 +1,4 @@
-# Dependency and Supply Chain Risk Report
+Intentionally left blank. Risk Report
 
 ## Overview
 Dependencies are currently specified in requirements.txt and requirements_gpu.txt with broad version ranges. setup.py does not enforce install_requires, shifting responsibility to external installation steps. requirements_extra.txt references a Git-based pycocotools, which introduces drift risk.
