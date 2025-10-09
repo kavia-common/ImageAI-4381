@@ -39,3 +39,30 @@ This suite reflects the current repository state and references:
 - Ensure 09-implementation-playbook.md includes exact commands and validation steps added during remediation.
 - Keep 10-hardening-checklist.md in sync with CI workflows and release processes.
 
+## Exporting a Single PDF
+
+You can build a consolidated security report (Markdown + PDF) that merges all the documents in a deterministic order defined in `_order.txt`.
+
+Commands:
+- python3 scripts/build_security_report.py
+- or: make -C docs/security pdf
+
+Outputs:
+- docs/security/SECURITY-REPORT.md
+- docs/security/SECURITY-REPORT.pdf
+
+Dependencies for PDF export (any one of the following toolchains):
+1) Preferred: Pandoc + wkhtmltopdf
+   - Install pandoc: https://pandoc.org/installing.html
+   - Install wkhtmltopdf: https://wkhtmltopdf.org/downloads.html
+2) Pandoc + WeasyPrint
+   - Install pandoc and Python package weasyprint: pip install weasyprint
+3) Python fallback (no pandoc):
+   - pip install markdown weasyprint
+
+If no PDF toolchain is available, the script will still generate SECURITY-REPORT.md and print instructions on how to enable PDF export.
+
+Notes:
+- The file `docs/security/_order.txt` controls which markdown files are merged and in what order.
+- Page breaks are inserted between sections in the generated PDF for readability.
+- The script is idempotent, UTF-8 safe, and exits non-zero on errors (missing files or conversion failures).
