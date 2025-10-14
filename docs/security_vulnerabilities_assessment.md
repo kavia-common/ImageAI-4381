@@ -1,364 +1,418 @@
-# Security Vulnerilities Assessment – ImageAI-4381
+# Security Vulnerabilities Assessment – ImageAI-4381
 
-## 1. Cover Page
-- Document Title: “Security Vulnerabilities Assessment – ImageAI-4381”
+## Cover Page
+This Security Vulnerabilities Assessment provides a comprehensive review of ImageAI-4381, a Python library for image/video classification, object detection, and custom training with CPU/GPU (CUDA) support.
+
+- Document Title: Security Vulnerabilities Assessment – ImageAI-4381
 - Version: 1.0.0
-- Date: 2025-10-10
+- Date: 2025-10-14
 - Confidentiality Classification: Internal – Security Sensitive
 - Authors/Reviewers, Approval Signatures
   - Authors: Security Documentation Team (ImageAI-4381)
   - Reviewers: [To be assigned]
-  - Approval Signatures: 
+  - Approval Signatures:
     - Maintainer Lead: ______________________  Date: __________
     - Security Lead: ________________________  Date: __________
 
-## 2. Document Control
-- Version History (version, date, author, summary of changes)
+## Document Control
+- Version History
 
-| Version | Date       | Author                         | Summary of Changes                                         |
-|--------:|------------|--------------------------------|------------------------------------------------------------|
-| 1.0.0   | 2025-10-10 | Security Documentation Team    | Regenerated to match the exact 16-topic structure.         |
+| Version | Date       | Author                      | Summary of Changes                                                                  |
+|--------:|------------|-----------------------------|-------------------------------------------------------------------------------------|
+| 1.0.0   | 2025-10-14 | Security Documentation Team | Initial comprehensive assessment per requested structure and project-tailored detail |
 
 - Distribution List and Access Level
 
-| Role/Team                     | Distribution Purpose                 | Access Level      |
-|------------------------------|--------------------------------------|-------------------|
-| Core Maintainers             | Ownership and remediation            | Read/Write        |
-| Security Reviewers           | Independent review and validation    | Read/Comment      |
-| Release Engineering          | Pipeline/security gate integration   | Read              |
-| External Auditors (if any)   | Formal assessment                    | Read (upon NDA)   |
+| Role/Team           | Distribution Purpose                 | Access Level    |
+|--------------------|--------------------------------------|-----------------|
+| Core Maintainers   | Ownership and remediation            | Read/Write      |
+| Security Reviewers | Independent review and validation    | Read/Comment    |
+| Release Engineering| Pipeline/security gate integration   | Read            |
+| External Auditors  | Formal assessment                    | Read (upon NDA) |
 
-- References and Related Documents (e.g., SECURITY.md, architecture docs)
-  - docs/architecture.md
+- References and Related Documents
   - README.md
+  - docs/Architecture.md and docs/architecture.md
+  - docs/APIReference.md
   - requirements.txt, requirements_gpu.txt, requirements_extra.txt
   - imageai/backend_check/backend_check.py
-  - SECURITY.md [To be created or linked if present]
-  - Release notes and SBOM [To be updated in future releases]
+  - setup.py
+  - SECURITY.md [To be added]
+  - SBOM and signed release notes [To be updated post-release]
 
-## 3. Executive Summary
-- Scope and Objectives
-  - This assessment evaluates security risks for ImageAI-4381, a Python library enabling image classification, object detection, video analysis, and custom training, supporting CPU and GPU (CUDA) environments with PyTorch as the primary backend and legacy TensorFlow code retained under a deprecated namespace. The objective is to identify vulnerabilities, assess risk, and recommend actionable remediations and hardening practices for both library and common integration scenarios (Python API and CLI scripts).
+## Executive Summary
+ImageAI-4381 exposes high-performance computer vision capabilities through a Python API and example CLI-like scripts. Supported classification backbones include MobileNetV2, ResNet50, InceptionV3, and DenseNet121. Detection supports RetinaNet, YOLOv3, and TinyYOLOv3. The library supports CPU and NVIDIA GPU (CUDA) execution.
 
-- Methodology Overview (SAST, DAST, SCA, manual review, threat modeling)
-  - Manual code review of core modules, example scripts, and setup artifacts.
-  - Threat modeling covering assets, actors, entry points, trust boundaries.
-  - Software Composition Analysis (SCA) planned using pip-audit/Safety/OSV. Evidence: To be updated after SCA run.
-  - Static Application Security Testing (SAST) planned with Bandit. Evidence: To be updated after Bandit run.
-  - Dynamic testing/fuzzing planned for media loaders and model deserialization paths. Evidence: To be updated after fuzz runs.
+Our assessment focuses on model deserialization safety, dependency and supply chain risk, GPU stack considerations, CLI argument parsing, temporary file handling, environment variable usage, logging safety, and integration patterns. We also consider video analysis paths where codec handling and frame-rate scaling can be abused for denial of service.
 
-- Overall Risk Posture (e.g., High/Medium/Low) and Key Findings
-  - Overall Risk Posture: Medium (pending SAST/SCA confirmation).
-  - Key findings (preliminary):
-    - Exposure to native-library CVEs through OpenCV/Pillow/NumPy.
-    - Input handling risks for large or malformed images/videos leading to DoS.
-    - Model weight integrity and unsafe deserialization concerns.
-    - GPU environment drift and driver/CUDA mismatches affecting security stability.
-    - Supply chain exposure via transitive dependencies and optional Git-based installs.
+- Methodology overview
+  - Manual code review of core modules, examples, and setup artifacts.
+  - Threat modeling of assets, actors, entry points, and trust boundaries.
+  - Planned scans: Bandit (SAST), pip-audit/Safety/OSV (SCA), linting (Ruff/Flake8), custom fuzzing harnesses for media loaders and deserialization.
+  - Evidence artifacts: To be updated post-scan.
 
-- Remediation Priorities and High‑Level Roadmap
-  - Immediate: Pin dependencies; publish constraints/lockfiles for CPU/GPU; add input bounds checking guidance; verify model checksums.
-  - Near-Term: Integrate SCA/SAST into CI; add secure loader utilities and checksum enforcement; document secure CLI patterns.
-  - Long-Term: SBOM generation; signed releases; hardened container images with runtime isolation, and continuous monitoring.
+- Overall risk posture
+  - Current posture is Medium pending SAST/SCA. Top concerns include unsafe model deserialization via pickle/torch.load, unbounded image/video inputs leading to DoS, dependency CVEs in native code (OpenCV/Pillow/NumPy), GPU/driver CVEs and container isolation gaps, and supply chain exposure through unpinned transitive dependencies and Git-based installs.
 
-## 4. Project and System Context
-- System Overview (library usage patterns, CLI, training/inference workflows)
-  - ImageAI-4381 provides a Python API and example CLI-style scripts for image classification (MobileNetV2, ResNet50, InceptionV3, DenseNet121), object detection (RetinaNet, YOLOv3, TinyYOLOv3), video analysis, and custom training. Users import the library or run provided scripts to perform inference or train custom models using labeled datasets.
+- High-level remediation roadmap
+  - Immediate: Pin and constrain dependencies per CPU/GPU; publish constraints/lockfiles; add safe deserialization utilities; enforce input bounds; provide checksum/signature verification workflows.
+  - Near-term: Integrate Bandit and SCA in CI; generate SBOM; document secure CLI patterns; add argparse validators and safe tempfile usage.
+  - Long-term: Signed releases; reproducible builds; hardened container profiles (seccomp/AppArmor), non-root defaults; scheduled SCA/SAST and monitoring.
 
-- Supported Environments (CPU/GPU, CUDA versions, OS targets)
-  - CPU: Linux, Windows, macOS with CPython.
-  - GPU: NVIDIA CUDA-enabled systems. CUDA version should match PyTorch build variant selected (consult requirements_gpu.txt and PyTorch install matrix).
-  - Python versions: As supported by the chosen PyTorch/TorchVision versions.
+## Project and System Context
+ImageAI-4381 is a Python library intended to be imported by applications and used via example scripts for:
+- Image classification using MobileNetV2, ResNet50, InceptionV3, DenseNet121.
+- Object detection using RetinaNet, YOLOv3, TinyYOLOv3.
+- Video object detection and per-frame/per-second analysis.
+- Custom training for classification and detection.
 
-- Data Classification (types of inputs/outputs, sensitivity, PII considerations)
-  - Inputs: Images, videos, arrays, datasets with labels/annotations (e.g., VOC/YOLO).
-  - Outputs: Predictions, annotated media, extracted objects, trained models.
-  - Sensitivity varies by use case; privacy-sensitive data may appear in inputs/outputs. The library does not inherently collect PII but integrators must treat user datasets according to organizational policies.
+Supported environments:
+- CPU: Linux/Windows/macOS (CPython).
+- GPU: NVIDIA CUDA; users select the appropriate torch/torchvision wheels that match the CUDA version (see requirements_gpu.txt). The backend_check module enforces PyTorch presence and emits guidance for deprecated TensorFlow usage.
 
-- Dependencies and Third‑Party Components (frameworks, native libs, model hubs)
-  - Frameworks: PyTorch, TorchVision; legacy TensorFlow code under imageai_tf_deprecated/.
-  - Native libs: OpenCV, Pillow, NumPy, SciPy.
-  - Utilities: tqdm, matplotlib, pytest (tests), pycocotools (optional).
-  - Model sources: Local files; users may download weights from upstream releases or model hubs—integrity verification recommended.
+Data classification:
+- Inputs include images/videos, arrays, and labeled datasets. Outputs include predictions, annotated frames, extracted objects, and model checkpoints. Privacy considerations depend on integrator context; the library itself does not collect PII.
 
-## 5. Assessment Scope and Methodology
-- In‑Scope Components (modules, scripts, pipelines)
-  - imageai/ (Classification, Detection, backend_check, YOLOv3, RetinaNet utilities)
-  - examples/ and scripts/pascal_voc_to_yolo.py
-  - requirements*.txt, setup.py, tests/
-  - GPU-related flows guided by requirements_gpu.txt
+Dependencies and third-party components:
+- Frameworks: PyTorch/TorchVision; TensorFlow-based code is archived under imageai_tf_deprecated.
+- Native libs: OpenCV, Pillow, NumPy, SciPy; optional pycocotools via Git source for training.
+- Tooling: pytest, tqdm, matplotlib.
 
-- Out‑of‑Scope Items and Assumptions
-  - External services that embed this library and their infrastructure.
-  - Dataset licensing/compliance beyond security implications.
-  - Adversarial ML robustness is not the primary focus in this assessment.
-  - Assumes no built-in network services.
+## Assessment Scope and Methodology
+In-scope:
+- imageai/ modules for Classification and Detection (YOLOv3/TinyYOLOv3 utilities, RetinaNet utilities), backend_check/.
+- examples/ and scripts/pascal_voc_to_yolo.py.
+- requirements*.txt, setup.py, tests/.
+- CPU/GPU install flows including requirements_gpu.txt.
 
-- Assessment Techniques (code review tools, fuzzing targets, config review)
-  - Static code review and Bandit SAST on Python files. Evidence: To be updated after Bandit run.
-  - Fuzzing targets: image/video loaders, serialization/deserialization boundaries, annotation parsing. Evidence: To be updated after fuzzing.
-  - Config and pipeline review for release process and dependency pins.
+Out-of-scope and assumptions:
+- External infrastructure of integrators.
+- Dataset licensing details beyond security implications.
+- Adversarial ML robustness outside our explicit safety controls.
 
-- Tools and Sources (Bandit, pip‑audit/Safety/OSV, Ruff/Flake8, custom fuzzers)
-  - SAST: Bandit; Lint: Ruff/Flake8 [optional].
-  - SCA: pip-audit, Safety, OSV-Scanner.
-  - Fuzzing: python-afl/hypothesis-based fuzzers/custom harnesses.
-  - Build/CI: GitHub Actions/GitLab CI [as configured by project integrators].
+Techniques:
+- Manual code review; Bandit SAST; SCA with pip-audit/Safety/OSV; Ruff/Flake8 linting; fuzzing of media decode and annotation parsers; configuration review of pins and optional Git dependencies.
+- Evidence placeholders will be replaced after scans.
 
-## 6. Threat Model
-- Assets (models/weights, datasets, labels, inference outputs, GPU resources)
-  - Model weights and trained checkpoints; datasets and annotations; inference outputs; GPU compute resources; release artifacts and SBOMs.
+Tools:
+- Bandit; Ruff/Flake8; pip-audit, Safety, OSV-Scanner; hypothesis/pyfuzzer-based media fuzzing; container hardening with seccomp/AppArmor.
 
-- Actors (maintainers, end users, CI/CD, external attackers, supply chain)
-  - Maintainers, end users/integrators, CI/CD systems, external attackers, upstream dependency maintainers, and model hub providers.
+## Threat Model
+Assets:
+- Model weights, trained checkpoints (state_dicts), datasets/annotations, inference outputs, GPU resources, and release artifacts (wheels, SBOM).
 
-- Entry Points (Python API, CLI, file I/O, environment/config, model downloads)
-  - Python API functions; example scripts and CLI arguments; filesystem file I/O; environment variables and config; model/weight downloads and dataset conversion scripts.
+Actors:
+- Maintainers, integrators/end users, CI/CD systems, external attackers, upstream maintainers, model hub providers.
 
-- Trust Boundaries and Data Flows (filesystem, network, GPU drivers/runtime)
-  - Filesystem boundary between untrusted input files and processing code.
-  - Network boundary when downloading models/datasets (if performed externally).
-  - GPU driver/runtime boundary where kernel execution and device memory access occur.
+Entry points:
+- Python API calls; example CLI scripts; local file inputs; environment vars (e.g., CUDA_VISIBLE_DEVICES); model/dataset downloads and conversion scripts.
 
-- Abuse Cases and Misuse Scenarios
-  - Malicious images/videos exploiting decoder vulnerabilities or causing DoS via oversized inputs.
-  - Tampered model weights leading to arbitrary code execution through unsafe deserialization.
-  - Dependency confusion or supply chain compromise via unpinned or Git-sourced packages.
-  - Leakage of sensitive dataset paths or content via verbose logging.
+Trust boundaries:
+- Filesystem boundary for untrusted media and model files.
+- Network boundary for downloads performed externally to the library.
+- GPU runtime boundary for kernel execution and device memory access.
 
-## 7. Attack Surface Analysis
-- Input Handling (images/videos/codecs; size/format validation; DoS vectors)
-  - Risk of malformed or oversized media inputs causing decoder crashes or resource exhaustion.
-  - Lack of built-in global caps; integrators should enforce whitelists (e.g., JPEG/PNG) and size/frame limits.
+Misuse scenarios:
+- Malicious model file triggering code execution during deserialization.
+- Oversized/malformed media exhausting system resources or crashing native codecs.
+- Compromised dependency or Git-sourced extra introducing malware.
+- Excessive logging leaking sensitive paths or dataset contents.
 
-- Model Loading and Serialization (pickle/torch.load safety; integrity checks)
-  - torch.load and similar mechanisms may execute code if loading pickled objects. Use state_dict-only checkpoints where feasible; verify checksums/signatures of weights.
+## Attack Surface Analysis
+Input handling:
+- OpenCV/Pillow decode paths may crash or allocate excessively with malformed/large inputs. Unbounded frame count or resolution in video analysis can starve CPU/GPU.
 
-- Dependency and Supply Chain (PyTorch/TensorFlow/OpenCV/FFmpeg/NumPy CVEs)
-  - CVEs in native libs and frameworks may affect process integrity; FFmpeg may be pulled in via OpenCV. Maintain up-to-date pins and monitor advisories.
+Model loading/serialization:
+- torch.load can execute pickled code. Users often download weights from the internet. Absent integrity checks, tampering can lead to RCE.
 
-- GPU/Hardware Stack (CUDA/driver vulnerabilities, isolation concerns)
-  - Kernel/driver CVEs and container escape risks when exposing GPU devices; ensure driver/CUDA version hygiene and least-privilege device access.
+Dependency and supply chain:
+- Requirements specify broad version ranges and optional Git-based pycocotools, increasing supply chain exposure. CVEs in OpenCV/Pillow/NumPy are historically frequent due to native code.
 
-- CLI and Scripting (argument parsing, command execution, temp files)
-  - Validate CLI args; avoid shell=True; use secure temp dirs with restrictive permissions; sanitize output paths.
+GPU/hardware stack:
+- Exposing GPUs in containers without proper profiles may elevate risk. CUDA/NVIDIA driver CVEs require timely patching and version alignment with PyTorch.
 
-- Configuration and Secrets (.env usage, permissions, default settings)
-  - The project does not rely on .env; if used by integrators, ensure secrets are not committed and enforce least privilege on config files.
+CLI and scripting:
+- Scripts that parse arguments must validate paths, sizes, and types; shell=True must not be used; temporary files and directories need restrictive permissions.
 
-- Logging/Telemetry (sensitive data exposure, metadata leakage)
-  - Avoid logging raw image data, full file contents, or sensitive paths; apply redaction and structured logging.
+Configuration and secrets:
+- The library has no .env, but integrators may rely on environment variables. Ensure secrets are not committed and permissions are restricted.
 
-- Build/CI/CD and Release Pipeline (signing, reproducibility, artifact integrity)
-  - Use pinned environments, reproducible builds, and signed artifacts. Protect tokens and implement branch protection and review gates.
+Logging/telemetry:
+- Logging of full paths or metadata can leak sensitive dataset info. Avoid logging raw frame data.
 
-## 8. Findings
-- For each finding, include a discrete subsection with:
-  - ID, Title, Severity (CVSS v3.1 or qualitative), Likelihood, Risk Rating
-  - Description and Technical Impact
-  - Affected Components/Versions and Attack Preconditions
-  - Evidence/Proof of Concept (repro steps, logs, screenshots)
-  - Exploitability and Detection
-  - Recommended Remediation and Compensating Controls
-  - References (CVE, advisories, best‑practice links)
+Build/CI/CD:
+- setup.py currently declares no install_requires. Requirements are external. Reproducible builds, signed artifacts, and lockfiles are needed to reduce integrity risk.
 
-### F-001: Potential Unsafe Deserialization via torch.load on Untrusted Weights
-- Severity: High (qualitative); Likelihood: Medium; Risk Rating: High
-- Description and Technical Impact
-  - Loading pickled artifacts may trigger code execution during unpickling. If users load untrusted weights, this can lead to RCE.
-- Affected Components/Versions and Attack Preconditions
-  - Any usage path that calls torch.load or analogous deserialization on files from untrusted sources.
-- Evidence/Proof of Concept
-  - To be updated after manual code review and PoC harness. Reference: PyTorch deserialization guidance.
+## Findings
+Each finding includes ID, severity, likelihood, risk rating, technical detail, affected components/versions, evidence placeholders, and remediation guidance.
+
+### F-001: Unsafe Model Deserialization via torch.load/pickle
+- Severity: High | Likelihood: Medium | Risk Rating: High
+- Description
+  - torch.load can execute arbitrary code embedded in pickle archives. Loading untrusted or tampered model files can lead to RCE.
+- Affected Components/Versions
+  - Any code path using torch.load or pickle-based deserialization for weights or checkpoints.
+- Evidence
+  - To be updated post manual grep and Bandit scan (e.g., B301/B403). PoC harness to attempt code execution from crafted pickle file.
 - Exploitability and Detection
-  - Exploitable with crafted pickle files. Detection via behavior monitoring and integrity checks.
-- Recommended Remediation and Compensating Controls
-  - Prefer state_dict-only checkpoints; verify checksums/signatures; document safe loading patterns; optionally provide a safe loader wrapper.
+  - Exploitable when an attacker can supply or tamper with weight files. Detection via integrity checks, behavior monitoring, or restricted loaders.
+- Remediation
+  - Provide safe loader utility that:
+    - Prefers state_dict-only checkpoints.
+    - Uses torch.load with weights_only=True (when available) or manually enforces torch.load(map_location="cpu") and validates expected tensors only.
+    - Verifies SHA256 checksums and optional signatures before loading.
+  - Document to never load untrusted weights. Include sample code:
+    ```
+    import hashlib, pathlib, torch
+
+    def sha256sum(p: str) -> str:
+        h = hashlib.sha256()
+        with open(p, "rb") as f:
+            for chunk in iter(lambda: f.read(1 << 20), b""):
+                h.update(chunk)
+        return h.hexdigest()
+
+    def load_state_dict_safe(path: str, expected_sha256: str, strict=True):
+        actual = sha256sum(path)
+        if actual != expected_sha256:
+            raise ValueError("Checksum mismatch for weight file")
+        obj = torch.load(path, map_location="cpu")
+        if "state_dict" in obj:
+            return obj["state_dict"]
+        if strict:
+            raise ValueError("Expected state_dict-only checkpoint")
+        return obj
+    ```
 - References
-  - PyTorch security best practices; Common serialization risks.
+  - PyTorch serialization guidance; OWASP deserialization risks.
 
-### F-002: DoS Risk from Large or Malformed Media Inputs
-- Severity: Medium; Likelihood: High; Risk Rating: High
-- Description and Technical Impact
-  - Large frames or corrupted inputs can exhaust memory/CPU or crash decoders.
-- Affected Components/Versions and Attack Preconditions
-  - Image/video loaders using Pillow/OpenCV paths; video processing examples.
-- Evidence/Proof of Concept
-  - To be updated after fuzzing OpenCV/Pillow decode paths.
-- Exploitability and Detection
-  - High in unbounded environments; monitor process resource usage and implement caps.
-- Recommended Remediation and Compensating Controls
-  - Enforce size/frame/time limits; whitelist file types; use safe decoders and robust error handling.
+### F-002: DoS from Oversized/Malformed Images/Videos
+- Severity: High | Likelihood: High | Risk Rating: High
+- Description
+  - Unbounded image dimensions, frame counts, or decode times can cause memory/CPU/GPU exhaustion. Malformed inputs may trigger decoder crashes in OpenCV/Pillow.
+- Affected Components
+  - Image/video decode paths across examples and detection/classification loaders.
+- Evidence
+  - To be provided post fuzzing with hypothesis-based generators and corpus of malformed media files.
+- Remediation
+  - Add centralized validators for:
+    - Allowed extensions/MIME types (e.g., .jpg, .png; vetted video codecs).
+    - Max image size (e.g., 4096x4096), max video resolution/frame rate/duration.
+    - Resource caps and early aborts with timeouts.
+  - Example validator:
+    ```
+    import imghdr, os
+
+    def validate_image_path(p, max_w=4096, max_h=4096, formats={"jpeg","png"}):
+        if not os.path.isfile(p):
+            raise FileNotFoundError(p)
+        kind = imghdr.what(p)
+        if kind not in formats:
+            raise ValueError("Unsupported image format")
+        # Use Pillow to check dimensions safely
+        from PIL import Image
+        with Image.open(p) as im:
+            w, h = im.size
+            if w > max_w or h > max_h:
+                raise ValueError("Image too large")
+    ```
 - References
-  - OpenCV and Pillow CVE advisories.
+  - OpenCV and Pillow CVEs; secure media handling practices.
 
-### F-003: Supply Chain Risks from Transitive Dependencies and Optional Git Installs
-- Severity: Medium; Likelihood: Medium; Risk Rating: Medium
-- Description and Technical Impact
-  - Dependency confusion, typosquatting, or compromised upstream packages can introduce malicious code.
-- Affected Components/Versions and Attack Preconditions
-  - requirements*.txt and any optional Git-based extra dependencies (e.g., pycocotools).
-- Evidence/Proof of Concept
-  - To be updated after pip-audit/Safety/OSV runs.
-- Exploitability and Detection
-  - Medium; detect via SCA and locked indexes.
-- Recommended Remediation and Compensating Controls
-  - Pin versions; use hashes; restrict indexes; vet Git sources; generate SBOM.
-- References
-  - PyPI supply chain guidance; OSV database.
+### F-003: Supply Chain Exposure via Unpinned/Native Dependencies and Git Extras
+- Severity: High | Likelihood: Medium | Risk Rating: High
+- Description
+  - requirements*.txt pin minimums but not exact versions or hashes. Optional Git-based pycocotools increases attack surface.
+- Affected Components
+  - requirements.txt, requirements_gpu.txt, requirements_extra.txt, setup.py (no install_requires pins).
+- Evidence
+  - To be updated post SCA scans (pip-audit/Safety/OSV) and SBOM generation.
+- Remediation
+  - Adopt constraints/lockfiles per environment (CPU/GPU).
+  - Use hash-pinning (pip-tools or PEP 665 when available).
+  - Restrict indexes to trusted PyPI mirrors; avoid Git installs or pin to specific commit with signature verification; vendor wheels if necessary.
+  - Generate SBOM (e.g., cyclonedx-py).
+  - CI gates to block known critical CVEs.
 
-- 8.x Category Summaries (optional):
-  - Input Validation and Media Parsing
-    - Primary risk is malformed or oversized inputs causing DoS; enforce validation and limits.
-  - Model Integrity and Deserialization
-    - Avoid arbitrary pickle loading; verify integrity; use secure loader helpers.
-  - Dependency/Supply Chain Risks
-    - Maintain pins, hashes, and CI SCA; prefer stable channels over ad-hoc Git sources.
-  - Environment/GPU Runtime
-    - Pin CUDA/driver versions; enforce device isolation; update promptly on CVEs.
-  - CLI/Operational Safety
-    - Validate args; avoid shell=True; secure temp files; handle paths safely.
-  - Secrets, Configuration, and Logging
-    - No secrets required by library; ensure integrator secrets are managed externally; redact logs.
-  - Privacy/Data Handling
-    - Minimize logging of file names/paths when sensitive; follow data governance.
+### F-004: GPU Stack Risks (Driver/CUDA CVEs, Container Isolation)
+- Severity: Medium | Likelihood: Medium | Risk Rating: Medium
+- Description
+  - NVIDIA driver/CUDA CVEs can enable privilege escalation/DoS. Misconfigured containers with GPU access and elevated privileges can expand impact.
+- Affected Components
+  - GPU deployments; docker/nvidia-container-toolkit runtime profiles.
+- Evidence
+  - To be updated post environment matrix validation and CVE watchlist review.
+- Remediation
+  - Align CUDA/driver with torch/torchvision build versions documented in requirements_gpu.txt.
+  - Use non-root containers; read-only rootfs; no privileged; minimal device permissions; seccomp/AppArmor profiles.
+  - Patch drivers promptly; attach CVE monitoring.
 
-## 9. Risk Evaluation and Prioritization
-- Risk Matrix (Likelihood x Impact)
+### F-005: CLI Argument and Temp File Safety
+- Severity: Medium | Likelihood: Medium | Risk Rating: Medium
+- Description
+  - Example scripts must validate user-supplied paths, numeric ranges, and avoid shell=True; temporary directories must be created with secure defaults; outputs sanitized to prevent path traversal.
+- Affected Components
+  - examples/, scripts/pascal_voc_to_yolo.py.
+- Evidence
+  - To be updated after Bandit scan (flags like B602, B603) and manual review.
+- Remediation
+  - Use argparse with type checks and custom validators.
+  - Never use subprocess with shell=True.
+  - Use tempfile.TemporaryDirectory() and NamedTemporaryFile(delete=True).
+  - Normalize and ensure parent directories exist with safe permissions.
 
-| Likelihood \ Impact | Low  | Medium | High  |
-|---------------------|------|--------|-------|
-| Low                 | Low  | Low    | Med   |
-| Medium              | Low  | Med    | High  |
-| High                | Med  | High   | High  |
+## Risk Evaluation and Prioritization
+Risk Matrix (Likelihood x Impact):
 
-- Top Risks (R1–R5) with business justification
-  - R1: Unsafe deserialization of model weights (RCE potential).
-  - R2: DoS from malformed/oversized media (service reliability).
-  - R3: Dependency CVEs in OpenCV/Pillow/NumPy (native code implications).
-  - R4: GPU runtime/driver CVEs and isolation gaps (elevated impact on multi-tenant systems).
-  - R5: Supply chain compromise or dependency confusion (integrity of build/runtime).
+| Likelihood \ Impact | Low | Medium | High |
+|---------------------|-----|--------|------|
+| Low                 | Low | Low    | Med  |
+| Medium              | Low | Med    | High |
+| High                | Med | High   | High |
 
-- Quick Wins vs. Strategic Remediations
-  - Quick Wins: Pin and audit dependencies; add input size/type checks; provide checksum verification examples; document safe torch.load patterns.
-  - Strategic: CI-integrated SAST/SCA; SBOM and signed releases; hardened GPU container profiles and runtime policies.
+Top Risks R1–R5:
+- R1: Unsafe deserialization of model weights (potential RCE). Justification: High impact, common user pattern to download weights; mitigations available via safe loaders and checksums.
+- R2: DoS via oversized/malformed media. Justification: Likely in real-world usage; can impact service reliability and availability.
+- R3: Dependency CVEs in native libs (OpenCV/Pillow/NumPy). Justification: Native code frequently impacted; affects integrity/availability.
+- R4: GPU runtime/driver CVEs and isolation gaps. Justification: Elevated impact in multi-tenant or containerized GPU environments.
+- R5: Supply chain compromise via Git-sourced extras and unpinned versions. Justification: Integrity risk across build/runtime pipelines.
 
-## 10. Remediation Plan
-- Immediate Actions (0–30 days)
-  - Publish version-pinned constraints for CPU and GPU; add guidance and sample code for input bounds and safe deserialization; run initial SCA/SAST and triage findings.
-- Near‑Term Actions (30–90 days)
-  - Integrate pip-audit/OSV/Safety and Bandit into CI; produce SBOM; add optional safe loader utilities and checksum enforcement; draft SECURITY.md with reporting process.
-- Long‑Term Controls (>90 days)
-  - Signed release artifacts; reproducible builds; container hardening profiles (seccomp/AppArmor) and non-root defaults; continuous monitoring and scheduled scans.
-- Owners, Target Dates, Success Criteria
-  - Owners: Maintainer Lead (dependencies), Security Lead (tooling/policy), Release Engineering (pipeline).
-  - Targets: See Risk Register for item-level dates.
-  - Success: Zero known criticals in SCA; SAST clean for high-severity; enforced constraints/lockfiles; documented safe patterns adopted.
+Quick wins vs strategic:
+- Quick wins: Add safe loader and checksum verification; input validators; lock dependencies; enable Bandit and pip-audit in CI.
+- Strategic: SBOM, signed releases, hardened containers, continuous vulnerability monitoring.
 
-## 11. Security Hardening Guidance
-- Safe Input Handling (codec whitelists, size limits, safe decoders)
-  - Enforce MIME/type checks and extensions; restrict codecs to JPEG/PNG (images) and vetted formats for videos; apply max dimensions, frame counts, and decode timeouts.
+## Remediation Plan
+- Immediate (0–30 days)
+  - Publish constraints/lockfiles for CPU and GPU environments derived from requirements.txt and requirements_gpu.txt.
+  - Add safe loader utility and documentation discouraging torch.load of untrusted files; include checksum/signature verification examples.
+  - Provide input validation helpers for images/videos with size and format limits; integrate into examples.
+  - Run Bandit, pip-audit/Safety/OSV; triage and create issues. Artifacts: To be updated post-scan.
 
-- Model Security (checksums/signatures, restricted deserialization, provenance)
-  - Prefer state_dict; verify SHA256 checksums/signatures for weights; maintain provenance records (source URL, signature, hash).
+- Near-Term (30–90 days)
+  - Integrate SAST/SCA into CI as required checks; generate CycloneDX SBOM for releases.
+  - Introduce argparse validators and path sanitization patterns across scripts; ensure no subprocess shell=True usage.
+  - Add SECURITY.md with reporting process and supported versions policy.
+  - Evaluate removal or pinning of Git-based pycocotools with commit hash and checksum.
 
-- Dependency Policy (pinning, lockfiles, SCA in CI, release vetting)
-  - Maintain constraints for CPU/GPU; pin with hashes; run pip-audit/OSV/Safety on PRs and releases; vet new dependencies and sources.
+- Long-Term (>90 days)
+  - Sign release artifacts; document reproducible build process.
+  - Provide hardened container images: non-root, seccomp/AppArmor profiles, read-only rootfs, minimum capabilities.
+  - Establish scheduled SCA/SAST, NVIDIA CVE watch, and automatic PRs to bump pins after validation.
 
-- Runtime Isolation (containers, least privilege, no‑root, seccomp/AppArmor)
-  - Use non-root containers; read-only rootfs where feasible; drop capabilities; apply seccomp/AppArmor; restrict filesystem mounts.
+- Owners/Targets/Success
+  - Owners: Maintainer Lead (dependency and release policy), Security Lead (tooling and procedures), Release Engineering (CI/CD integration).
+  - Target dates: Tracked per Risk Register entries.
+  - Success criteria: No Critical/High unaddressed in SCA; Bandit clean for High; safe loader and validators available and used; signed releases and SBOM shipped.
 
-- GPU Hygiene (version pinning, driver updates, resource isolation)
-  - Align CUDA/driver to PyTorch; update upon CVEs; isolate GPUs to workloads; avoid privileged containers; use nvidia-container-toolkit safely.
+## Security Hardening Guidance
+- Safe Input Handling
+  - Enforce file extension/MIME whitelists; maximum dimensions/frame counts/duration; fail fast on decode errors; consider limiting color spaces and disabling auto-orientation if not needed.
 
-- Secrets Management (no secrets in repo; use secret stores; rotate keys)
-  - Do not store secrets in code or .env in repo; rely on secret managers; rotate keys; restrict access permissions.
+- Model Security
+  - Only load weights from trusted provenance. Maintain a mapping of model name → expected SHA256/signature.
+  - Prefer state_dict checkpoints; avoid arbitrary pickle objects; store and verify checksums before load.
 
-- Logging and Privacy (redaction, retention policies, metadata minimization)
-  - Redact PII; avoid logging raw media content; define retention and access controls; use structured logs.
+- Dependency Policy
+  - Use pip-tools to generate constraints with hashes; separate CPU and GPU constraint sets aligning with torch wheel indexes (cpu vs cu102/cu11x).
+  - Enable pip-audit/OSV on PRs and nightly; block merges on Critical/High without exception process.
 
-- Secure CLI Patterns (argparse validation, avoid shell=True, safe temp dirs)
-  - Validate arguments and paths; never use shell=True; use tempfile with secure defaults; sanitize outputs and ensure proper permissions.
+- Runtime Isolation
+  - Container run guidance:
+    - docker run --user nonroot --read-only --pids-limit=512 --no-new-privileges
+    - Apply restrictive seccomp/profile and AppArmor; bind-mount input/output dirs as needed with ro/rw separation.
+  - Avoid privileged containers and excessive device mappings.
 
-## 12. Validation and Verification
-- Test Coverage for Fixes (unit/integration/e2e)
-  - Add unit tests for input bounds validation helpers and safe loaders; expand integration tests for video/image edge cases.
+- GPU Hygiene
+  - Match CUDA/driver with torch/torchvision versions required by requirements_gpu.txt.
+  - Use nvidia-container-toolkit with default-deny device access; prefer per-process GPU assignment with CUDA_VISIBLE_DEVICES.
 
-- Fuzzing Strategy (image/video loaders, model files)
-  - Fuzz OpenCV/Pillow decode paths and annotation parsers; craft model weight fuzz corpus focusing on deserialization boundaries. Evidence: To be updated after fuzz runs.
+- Secrets Management
+  - No secrets embedded in repo. If any API keys are used by integrators, rely on external secret stores and restrict environment var exposure.
 
-- Regression Testing Plan and Acceptance Criteria
-  - For each fixed issue, add targeted regression tests; define acceptance as no crashes, bounded resource usage, and correct error handling.
+- Logging and Privacy
+  - Use structured logging with redaction; avoid logging full file paths when they may contain sensitive info; set sensible retention and access controls.
 
-- Continuous Monitoring (scheduled scans, alerting)
-  - Nightly/weekly SCA and Bandit runs; alert on new critical CVEs and regressions; track in CI dashboards.
+- Secure CLI Patterns
+  - argparse types and custom validators for ints/floats/ranges; pathlib.Path resolve() and checks against allowed directories; never use shell=True; utilize tempfile with default secure perms.
 
-## 13. Incident Response and Disclosure
-- Vulnerability Reporting Process (contact, SLA, triage)
-  - Security contact: security@imageai-4381.example [placeholder]
-  - SLA: Acknowledge within 72 hours; triage within 7 days; remediate based on severity.
-  - Private reporting encouraged; do not open public issues for 0-days.
+## Validation and Verification
+- Test Coverage
+  - Unit tests for input validators and safe loader. Integration tests for boundary conditions (max dimensions, long videos) and failure handling.
 
-- Security Advisories and Patch Release Process
-  - Use GitHub Security Advisories (or equivalent); issue patched releases with notes; credit reporters when appropriate.
+- Fuzzing Strategy
+  - Hypothesis-based fuzzers for image headers and annotation parsers; curated corpus of malformed media; monitor for crashes/timeouts. Artifacts: To be updated post-fuzz.
 
-- Rollback and Contingency Procedures
-  - Maintain last-known-good pins; rollback releases if regressions found; provide mitigation guidance while fixes are prepared.
+- Regression and Acceptance
+  - For each fixed issue, add targeted regression; acceptance criteria include no crashes, bounded resource usage under adversarial inputs, and clear error messages.
 
-## 14. Compliance and Licensing Considerations
-- Third‑Party License Obligations (models/datasets/libraries)
-  - Respect licenses for model weights, datasets, and dependencies (e.g., PyTorch BSD-style, OpenCV Apache 2.0, Pillow PIL licenses). Verify dataset license compatibility for redistribution/use.
+- Continuous Monitoring
+  - Scheduled Bandit and SCA runs; NVIDIA CVE watch; automated dependency update PRs with CI validation.
 
-- Data Protection/Privacy Implications
-  - If processing PII in images/videos, ensure compliance with applicable laws and organizational policies (e.g., data minimization and retention limits).
+## Incident Response and Disclosure
+- Reporting
+  - security@imageai-4381.example [placeholder]; acknowledge within 72 hours; triage within 7 days; remediation SLAs aligned to severity.
 
-- Export Controls (where applicable)
-  - Consider export restrictions for certain trained models or encryption-enabled artifacts where applicable.
+- Advisories and Patch Releases
+  - Use GitHub Security Advisories; backport critical fixes to supported branches; provide mitigation guidance where patching is delayed.
 
-## 15. Risk Register
-- Tabular log: ID, Title, Category, Severity, Owner, Status, Target Date, Notes
+- Rollback and Contingency
+  - Maintain last-known-good constraints; publish rollback instructions; temporarily block vulnerable code paths via feature flags if necessary.
 
-| ID   | Title                                           | Category                      | Severity | Owner             | Status     | Target Date | Notes                                                     |
-|------|--------------------------------------------------|-------------------------------|---------:|-------------------|------------|-------------|-----------------------------------------------------------|
-| R1   | Unsafe deserialization of weights                | Model Integrity/Deserialization| High     | Maintainer Lead   | Open       | 2025-11-15  | Prefer state_dict; add checksum/signature verification.   |
-| R2   | DoS via large/malformed media                    | Input Handling                | High     | Maintainer Lead   | Open       | 2025-11-01  | Enforce limits and safe decoders; fuzz decode paths.      |
-| R3   | Dependency CVEs (OpenCV/Pillow/NumPy)            | Supply Chain                  | High     | Security Lead     | Open       | 2025-10-30  | Pin and audit; generate SBOM; enable CI SCA.              |
-| R4   | GPU runtime/driver CVEs and isolation gaps       | Environment/GPU               | Medium   | Release Eng       | Open       | 2025-12-01  | Pin CUDA/driver; container isolation policies.            |
-| R5   | Git-sourced optional dependency integrity        | Supply Chain                  | Medium   | Maintainer Lead   | Open       | 2025-11-30  | Vet sources; prefer PyPI; use hashes.                     |
+## Compliance and Licensing Considerations
+- Third-Party Licenses
+  - Track dependencies and licenses via SBOM. Respect licenses for model weights/datasets. Confirm compatibility with MIT-licensed project.
 
-## 16. Appendices
-- Dependency Inventory (exact versions, hashes)
-  - To be updated after pip-compile or lockfile generation.
-  - Sample (illustrative; replace with actual):
-    - torch==X.Y.Z — sha256: [To be filled]
-    - torchvision==A.B.C — sha256: [To be filled]
-    - opencv-python==M.N.P — sha256: [To be filled]
-    - pillow==R.S.T — sha256: [To be filled]
-    - numpy==U.V.W — sha256: [To be filled]
+- Data Protection/Privacy
+  - If processing PII, ensure compliance with applicable regulations and organizational policy; minimize and anonymize where possible.
 
-- Environment Matrix (OS, Python, CUDA, drivers)
+- Export Controls
+  - Evaluate model export constraints based on trained content and jurisdictions.
 
-| OS           | Python | CPU/GPU | CUDA Version | NVIDIA Driver | Notes                              |
-|--------------|--------|---------|--------------|---------------|------------------------------------|
-| Ubuntu 22.04 | 3.10   | CPU     | N/A          | N/A           | Reference CPU environment          |
-| Ubuntu 22.04 | 3.10   | GPU     | 11.x         | 5xx+          | Align with selected torch builds   |
-| Windows 11   | 3.10   | GPU     | 11.x         | Latest WHQL   | Ensure matching CUDA/cuDNN         |
-| macOS 13     | 3.10   | CPU     | N/A          | N/A           | No CUDA; CPU-only                  |
+## Risk Register
+| ID | Title                                         | Category                         | Severity | Owner           | Status | Target Date | Notes                                                                 |
+|----|-----------------------------------------------|----------------------------------|---------:|-----------------|--------|-------------|-----------------------------------------------------------------------|
+| R1 | Unsafe deserialization of weights             | Model Integrity/Deserialization  | High     | Maintainer Lead | Open   | 2025-11-15  | Add safe loader and checksum enforcement; docs and tests.             |
+| R2 | DoS via large/malformed media                 | Input Handling                   | High     | Maintainer Lead | Open   | 2025-11-01  | Add validators, fuzz decoders, set limits in examples.               |
+| R3 | Dependency CVEs (OpenCV/Pillow/NumPy/Torch)   | Supply Chain                     | High     | Security Lead   | Open   | 2025-10-30  | Lockfiles with hashes, CI SCA, SBOM.                                 |
+| R4 | GPU runtime/driver CVEs and isolation gaps    | Environment/GPU                  | Medium   | Release Eng     | Open   | 2025-12-01  | Hardened containers, driver/CUDA alignment and patch cadence.        |
+| R5 | Git-sourced optional dependency integrity     | Supply Chain                     | Medium   | Maintainer Lead | Open   | 2025-11-30  | Pin to commits with checksums or replace with packaged alternative.  |
 
-- Configuration Baseline (.env.example, defaults)
-  - The library does not require a .env. If integrators use environment variables (e.g., CUDA_VISIBLE_DEVICES), provide a .env.example without secrets and document defaults.
+## Appendices
+- Dependency Inventory (to be updated post-lockfile and SBOM)
+  - Example entries (illustrative):
+    - torch==X.Y.Z — sha256:<to-be-updated-post-lock>
+    - torchvision==A.B.C — sha256:<to-be-updated-post-lock>
+    - opencv-python==M.N.P — sha256:<to-be-updated-post-lock>
+    - pillow==R.S.T — sha256:<to-be-updated-post-lock>
+    - numpy==U.V.W — sha256:<to-be-updated-post-lock>
+  - Sources:
+    - requirements.txt
+    - requirements_gpu.txt
+    - requirements_extra.txt (Git-sourced pycocotools)
 
-- Tool Output Artifacts (SAST, SCA, fuzz logs)
-  - Bandit report: To be updated after Bandit run.
-  - pip-audit/Safety/OSV: To be updated after SCA run.
-  - Fuzz logs/artifacts: To be updated after fuzzing.
+- Environment Matrix
 
-- Glossary and Acronyms
-  - SAST: Static Application Security Testing
-  - DAST: Dynamic Application Security Testing
-  - SCA: Software Composition Analysis
-  - SBOM: Software Bill of Materials
-  - RCE: Remote Code Execution
-  - DoS: Denial of Service
-  - GPU: Graphics Processing Unit
-  - CUDA: Compute Unified Device Architecture
+| OS           | Python | CPU/GPU | CUDA Version | NVIDIA Driver | Notes                                          |
+|--------------|--------|---------|--------------|---------------|------------------------------------------------|
+| Ubuntu 22.04 | 3.10   | CPU     | N/A          | N/A           | Reference CPU environment                      |
+| Ubuntu 22.04 | 3.10   | GPU     | 11.x         | 5xx+          | Align with torch GPU wheels per PyTorch matrix |
+| Windows 11   | 3.10   | GPU     | 11.x         | Latest WHQL   | Ensure cuDNN compatibility                     |
+| macOS 13     | 3.10   | CPU     | N/A          | N/A           | CPU only                                       |
+
+- Configuration Baseline
+  - No .env required by library. If using environment variables (e.g., CUDA_VISIBLE_DEVICES), provide an example file without secrets and document defaults.
+
+- Tool Output Artifacts
+  - Bandit report: To be updated post-scan.
+  - pip-audit/Safety/OSV results: To be updated post-scan.
+  - Fuzzing logs and crash reproducers: To be updated post-run.
+
+## Glossary and Acronyms
+- SAST: Static Application Security Testing
+- DAST: Dynamic Application Security Testing
+- SCA: Software Composition Analysis
+- SBOM: Software Bill of Materials
+- RCE: Remote Code Execution
+- DoS: Denial of Service
+- GPU: Graphics Processing Unit
+- CUDA: Compute Unified Device Architecture
