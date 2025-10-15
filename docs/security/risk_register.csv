@@ -1,0 +1,6 @@
+ID,Title,Category,Severity,Owner,Status,Target Date,Notes
+R1,Unsafe deserialization of weights,Model Integrity/Deserialization,High,Maintainer Lead,Open,2025-11-15,Add safe loader and checksum enforcement; docs and tests.
+R2,DoS via large/malformed media,Input Handling,High,Maintainer Lead,Open,2025-11-01,Add validators, fuzz decoders, set limits in examples.
+R3,Dependency CVEs (OpenCV/Pillow/NumPy/Torch),Supply Chain,High,Security Lead,Open,2025-10-30,Lockfiles with hashes, CI SCA, SBOM.
+R4,GPU runtime/driver CVEs and isolation gaps,Environment/GPU,Medium,Release Eng,Open,2025-12-01,Hardened containers, driver/CUDA alignment and patch cadence.
+R5,Git-sourced optional dependency integrity,Supply Chain,Medium,Maintainer Lead,Open,2025-11-30,Pin to commits with checksums or replace with packaged alternative.
