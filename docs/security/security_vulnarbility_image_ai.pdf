@@ -1,1 +1,28 @@
-[PDF generated from docs/security/security_vulnarbility_image_ai.md. Render this file using your CI pipeline (e.g., Pandoc or md-to-pdf) to produce a proper binary PDF. Placeholder text to indicate expected artifact location.]
+This is a placeholder for the consolidated PDF artifact.
+
+Instructions to generate the binary PDF (non-interactive CI-safe commands):
+
+Option A: Using Pandoc (recommended)
+- Ensure pandoc and a PDF engine (wkhtmltopdf, WeasyPrint, or LaTeX) are available in CI.
+- Run:
+  pandoc --from=gfm --to=pdf \
+    "docs/security/security_vulnarbility_image_ai.md" \
+    --output "docs/security/security_vulnarbility_image_ai.pdf" \
+    --metadata=title:"Security Vulnerabilities Assessment – ImageAI-4381" \
+    --pdf-engine=wkhtmltopdf
+
+Option B: Using md-to-pdf (Node-based)
+- Ensure Node.js is available; install md-to-pdf:
+  npm install --no-audit --no-fund --no-progress -g md-to-pdf
+- Run:
+  md-to-pdf "docs/security/security_vulnarbility_image_ai.md" --output "docs/security/security_vulnarbility_image_ai.pdf"
+
+Option C: Using WeasyPrint (HTML rendering)
+- Convert Markdown to HTML then HTML to PDF:
+  pandoc -f gfm -t html5 "docs/security/security_vulnarbility_image_ai.md" -o /tmp/security.html
+  weasyprint /tmp/security.html "docs/security/security_vulnarbility_image_ai.pdf"
+
+Post-generation:
+- Replace this placeholder with the generated binary PDF.
+- Verify the PDF includes all sections: cover page, document control, executive summary, context, scope/methods, threat model, attack surface, findings, risk evaluation, remediation plan, hardening guidance, validation/verification, incident response, compliance/licensing, risk register, appendices, and per-feature sections.
+- Ensure internal links (if any) work and page headings render correctly.
