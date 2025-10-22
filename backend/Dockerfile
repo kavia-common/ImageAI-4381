@@ -21,10 +21,13 @@ COPY . /app
 # Install local ImageAI library in editable mode
 RUN pip install --no-cache-dir -e .
 
-# Expose port and default command
-EXPOSE 8000
+# Expose port and default command (default to 3001 for preview systems)
+EXPOSE 3001
 
 # Create data directories
 RUN mkdir -p /app/backend/app/data/uploads /app/backend/app/data/outputs
 
-CMD ["uvicorn", "backend.app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Default command; can be overridden by docker-compose or start-backend.sh
+# Uses PORT env if provided by runtime, else 3001
+ENV PORT=3001
+CMD ["sh", "-c", "uvicorn backend.app.main:app --host 0.0.0.0 --port ${PORT}"]

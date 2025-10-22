@@ -14,6 +14,7 @@ from app.core.devices import get_device_info
 os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
 os.makedirs(settings.OUTPUT_DIR, exist_ok=True)
 
+# Note: The server port is controlled by the PORT environment variable in runtime (default 3001 for preview).
 app = FastAPI(
     title="ImageAI Backend API",
     description="FastAPI backend for ImageAI image classification, object detection, and video detection.",

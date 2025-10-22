@@ -76,13 +76,21 @@ What's new:
 
 This project includes a FastAPI backend and a React + Vite + TypeScript frontend for a simple web UI and API. You can run both in development mode using Docker Compose.
 
-- Backend: http://localhost:8000
+- Backend: http://localhost:3001 (preview) or http://localhost:8000 (local/dev prior versions)
 - Frontend: http://localhost:5173
 
 The frontend is configured to call the backend's API using VITE_API_BASE_URL. The default Compose config wires the frontend to the backend via the Docker network (http://backend:8000), while exposing the frontend on your host at http://localhost:5173.
 
 ### Prerequisites
 - Docker and Docker Compose
+
+### Preview System Start (Heroku/Render-like)
+A Procfile and start-backend.sh are provided for preview systems that expect a start command at repo root.
+
+- Default port: 3001 (can be overridden with env PORT)
+- Command: web: sh ./start-backend.sh
+
+Ensure the environment sets PORT=3001 or omit to use the default.
 
 ### Quick Start (Docker)
 1. Optional: create local data directories for persistence:

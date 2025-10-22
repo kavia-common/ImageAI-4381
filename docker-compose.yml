@@ -21,14 +21,21 @@ services:
       - ./data:/app/app/data
       - ./models:/app/app/data/models
     ports:
-      - "8000:8000"
+      - "3001:3001"
+    environment:
+      PORT: ${PORT:-3001}
+      # PUBLIC_INTERFACE
+      # The directory inside the container where models will be stored/mounted.
+      MODEL_DIR: /app/app/data/models
+      # PUBLIC_INTERFACE
+      # Comma-separated list of origins allowed for CORS, e.g., http://localhost:5173
+      ALLOW_ORIGINS: ${ALLOW_ORIGINS:-http://localhost:5173}
     # Ensure backend waits for its container network to be ready
     networks:
       - appnet
-    # Dev command: prefer running uvicorn with reload if Dockerfile supports it; otherwise rely on Dockerfile CMD
+    # Dev command: rely on Dockerfile CMD which respects PORT; use reload for local bind mounts
     command: >
-      sh -c "python -m uvicorn app.main:app
-      --host 0.0.0.0 --port 8000 --reload"
+      sh -c "uvicorn backend.app.main:app --host 0.0.0.0 --port ${PORT} --reload"
 
   frontend:
     build:
