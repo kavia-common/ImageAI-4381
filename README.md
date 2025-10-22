@@ -27,17 +27,17 @@ Visit [https://jarvis.genxr.co](https://jarvis.genxr.co/) to get started.
 
 
 [TheiaEngine](https://www.genxr.co/theia-engine), the next-generation computer Vision AI API capable of all Generative and Understanding computer vision tasks in a single API call and available via REST API to all programming languages. Features include
-- **Detect 300+ objects** ( 220 more objects than ImageAI)
-- **Provide answers to any content or context questions** asked on an image
+- Detect 300+ objects ( 220 more objects than ImageAI)
+- Provide answers to any content or context questions asked on an image
   - very useful to get information on any object, action or information without needing to train a new custom model for every tasks
--  **Generate scene description and summary**
--  **Convert 2D image to 3D pointcloud and triangular mesh**
--  **Semantic Scene mapping of objects, walls, floors, etc**
--  **Stateless Face recognition and emotion detection**
--  **Image generation and augmentation from prompt**
+-  Generate scene description and summary
+-  Convert 2D image to 3D pointcloud and triangular mesh
+-  Semantic Scene mapping of objects, walls, floors, etc
+-  Stateless Face recognition and emotion detection
+-  Image generation and augmentation from prompt
 -  etc.
 
-Visit [https://www.genxr.co/theia-engine](https://www.genxr.co/theia-engine) to try the demo and join in the beta testing today.
+Visit https://www.genxr.co/theia-engine to try the demo and join in the beta testing today.
 ## ---------------------------------------------------
  
 ![](logo1.png)
@@ -45,16 +45,15 @@ Visit [https://www.genxr.co/theia-engine](https://www.genxr.co/theia-engine) to 
 Developed and maintained by [Moses Olafenwa](https://twitter.com/OlafenwaMoses)
 
 ---
-
-Built with simplicity in mind, **ImageAI** 
+Built with simplicity in mind, ImageAI 
     supports a list of state-of-the-art Machine Learning algorithms for image prediction, custom image prediction, object detection, video detection, video object tracking
-    and image predictions trainings. **ImageAI** currently supports image prediction and training using 4 different Machine Learning algorithms 
-    trained on the ImageNet-1000 dataset. **ImageAI** also supports object detection, video detection and object tracking  using RetinaNet, YOLOv3 and TinyYOLOv3 trained on COCO dataset. Finally, **ImageAI** allows you to train custom models for performing detection and recognition of new objects. 
-   
-Eventually, **ImageAI** will provide support for a wider and more specialized aspects of Computer Vision
+    and image predictions trainings. ImageAI currently supports image prediction and training using 4 different Machine Learning algorithms 
+    trained on the ImageNet-1000 dataset. ImageAI also supports object detection, video detection and object tracking  using RetinaNet, YOLOv3 and TinyYOLOv3 trained on COCO dataset. Finally, ImageAI allows you to train custom models for performing detection and recognition of new objects. 
+    
+Eventually, ImageAI will provide support for a wider and more specialized aspects of Computer Vision
 
 
-**New Release : ImageAI 3.0.2**
+New Release : ImageAI 3.0.2
 
 What's new:
 - PyTorch backend
@@ -73,16 +72,109 @@ What's new:
 - <a href="#citation" > :white_square_button: Citation</a>
 - <a href="#ref" > :white_square_button: References</a>
 
+## Development with Docker Compose
 
+This project includes a FastAPI backend and a React + Vite + TypeScript frontend for a simple web UI and API. You can run both in development mode using Docker Compose.
+
+- Backend: http://localhost:8000
+- Frontend: http://localhost:5173
+
+The frontend is configured to call the backend's API using VITE_API_BASE_URL. The default Compose config wires the frontend to the backend via the Docker network (http://backend:8000), while exposing the frontend on your host at http://localhost:5173.
+
+### Prerequisites
+- Docker and Docker Compose
+
+### Quick Start (Docker)
+1. Optional: create local data directories for persistence:
+   - mkdir -p models data
+2. Optional: create an .env at the repo root to override defaults (see "Environment Variables" below). Not required for defaults.
+3. Start services:
+   - docker-compose up --build
+4. Access:
+   - Frontend: http://localhost:5173
+   - Backend OpenAPI Docs: http://localhost:8000/docs
+   - Health (example): http://localhost:8000/api/v1/health
+
+To stop: docker-compose down
+
+### Volumes
+- ./models -> mounted into backend at /app/app/data/models
+- ./data -> mounted into backend at /app/app/data
+
+These directories persist your models and data between container restarts.
+
+### CORS
+CORS is controlled by the backend environment variable ALLOW_ORIGINS (comma-separated list). By default, the code allows http://localhost:5173 for local development. When running via Docker Compose, you can set ALLOW_ORIGINS in the root .env to adjust as needed.
+
+### Frontend to Backend Networking
+- Inside Docker: the frontend reaches the backend at http://backend:8000 (service name on the Docker network). This is the default value of VITE_API_BASE_URL in docker-compose.yml.
+- Outside Docker (local dev): set VITE_API_BASE_URL=http://localhost:8000.
+
+Ensure your frontend configuration reads from import.meta.env.VITE_API_BASE_URL (already set in frontend/src/config.ts).
+
+## Local Development (without Docker)
+
+You can also run backend and frontend locally without Docker.
+
+### Backend (FastAPI)
+- Create a virtual environment and install deps from backend/requirements.txt.
+- Run uvicorn:
+
+```
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+- OpenAPI docs: http://localhost:8000/docs
+
+Note on CORS:
+- The backend currently enables CORSMiddleware with http://localhost:5173. To override in Docker, configure ALLOW_ORIGINS through environment variables (see below). A future update may make this fully dynamic.
+
+### Frontend (Vite React)
+- From frontend/, install and run:
+```
+npm install
+# Set API base; e.g.:
+# On Unix/macOS:
+export VITE_API_BASE_URL=http://localhost:8000
+# On Windows (PowerShell):
+# $env:VITE_API_BASE_URL="http://localhost:8000"
+
+npm run dev -- --host 0.0.0.0 --port 5173
+```
+- App: http://localhost:5173
+
+## Environment Variables
+
+Create a .env in the repository root if you need to override defaults. Do not commit secrets. The Compose file references these variables.
+
+- MODEL_DIR
+  - Purpose: Directory inside backend container where models are stored.
+  - Default (Compose): /app/app/data/models
+- ALLOW_ORIGINS
+  - Purpose: Comma-separated list of allowed origins for CORS.
+  - Default: http://localhost:5173
+- VITE_API_BASE_URL
+  - Purpose: Base URL the frontend uses to call the backend API.
+  - Default (Compose): http://backend:8000
+  - Default (Local Dev): set to http://localhost:8000
+
+Example .env:
+```
+# Backend
+ALLOW_ORIGINS=http://localhost:5173
+
+# Frontend
+VITE_API_BASE_URL=http://backend:8000
+```
 
 ## Installation
 <div id="installation"></div>
  
 To install ImageAI, run the python installation instruction below in the command line:
 
-- [Download and Install](https://www.python.org/downloads/) **Python 3.7**, **Python 3.8**, **Python 3.9** or **Python 3.10**
+- Download and Install Python 3.7, Python 3.8, Python 3.9 or Python 3.10
 - Install dependencies
-  - **CPU**: Download [requirements.txt](https://github.com/OlafenwaMoses/ImageAI/blob/master/requirements.txt) file and install via the command
+  - CPU: Download requirements.txt file and install via the command
     ```
     pip install -r requirements.txt
     ```
@@ -92,7 +184,7 @@ To install ImageAI, run the python installation instruction below in the command
     pip install cython pillow>=7.0.0 numpy>=1.18.1 opencv-python>=4.1.2 torch>=1.9.0 --extra-index-url https://download.pytorch.org/whl/cpu torchvision>=0.10.0 --extra-index-url https://download.pytorch.org/whl/cpu pytest==7.1.3 tqdm==4.64.1 scipy>=1.7.3 matplotlib>=3.4.3 mock==4.0.3
     ```
 
-  - **GPU/CUDA**: Download [requirements_gpu.txt](https://github.com/OlafenwaMoses/ImageAI/blob/master/requirements_gpu.txt) file and install via the command
+  - GPU/CUDA: Download requirements_gpu.txt file and install via the command
     ```
     pip install -r requirements_gpu.txt
     ```
@@ -100,7 +192,7 @@ To install ImageAI, run the python installation instruction below in the command
     ```
     pip install cython pillow>=7.0.0 numpy>=1.18.1 opencv-python>=4.1.2 torch>=1.9.0 --extra-index-url https://download.pytorch.org/whl/cu102 torchvision>=0.10.0 --extra-index-url https://download.pytorch.org/whl/cu102 pytest==7.1.3 tqdm==4.64.1 scipy>=1.7.3 matplotlib>=3.4.3 mock==4.0.3
     ```
-- If you plan to train custom AI models, download [requirements_extra.txt](https://github.com/OlafenwaMoses/ImageAI/blob/master/requirements_extra.txt) file and install via the command
+- If you plan to train custom AI models, download requirements_extra.txt file and install via the command
   
   ```
   pip install -r requirements_extra.txt
@@ -207,7 +299,7 @@ To install ImageAI, run the python installation instruction below in the command
   </tr>
   <tr>
     <td><img src="data-images/holo2-detected.jpg">
-    <h4>ImageAI now provides classes and methods for you detect and recognize your own custom objects in images using your own model trained with the DetectionModelTrainer class. You can use your custom trained YOLOv3 or TinyYOLOv3 model and the **.json** file generated during the training. Click the link below to see the guide to sample training codes, explanations, and best practices guide.</h4>
+    <h4>ImageAI now provides classes and methods for you detect and recognize your own custom objects in images using your own model trained with the DetectionModelTrainer class. You can use your custom trained YOLOv3 or TinyYOLOv3 model and the .json file generated during the training. Click the link below to see the guide to sample training codes, explanations, and best practices guide.</h4>
     <a href="imageai/Detection/Custom/CUSTOMDETECTION.md"> >>> Get Started</a>
     </td>
   </tr>
@@ -221,7 +313,7 @@ To install ImageAI, run the python installation instruction below in the command
   <tr>
     <td>
         <img src="data-images/customvideodetection.gif">
-        <h4>ImageAI now provides classes and methods for you detect and recognize your own custom objects in images using your own model trained with the DetectionModelTrainer class. You can use your custom trained YOLOv3 or TinyYOLOv3 model and the **.json** file generated during the training. Click the link below to see the guide to sample training codes, explanations, and best practices guide.</h4>
+        <h4>ImageAI now provides classes and methods for you detect and recognize your own custom objects in images using your own model trained with the DetectionModelTrainer class. You can use your custom trained YOLOv3 or TinyYOLOv3 model and the .json file generated during the training. Click the link below to see the guide to sample training codes, explanations, and best practices guide.</h4>
     <a href="imageai/Detection/Custom/CUSTOMVIDEODETECTION.md"> >>> Get Started</a>
     </td>
   </tr>
@@ -230,9 +322,9 @@ To install ImageAI, run the python installation instruction below in the command
 ## Documentation
 <div id="documentation"></div>
 
-We have provided full documentation for all **ImageAI** classes and functions. Visit the link below:
+We have provided full documentation for all ImageAI classes and functions. Visit the link below:
 
-- Documentation - **English Version**  [https://imageai.readthedocs.io](https://imageai.readthedocs.io)
+- Documentation - English Version  https://imageai.readthedocs.io
 
 
 ## Sponsors
@@ -242,9 +334,9 @@ We have provided full documentation for all **ImageAI** classes and functions. V
 ## Real-Time and High Performance Implementation
 <div id="performance"></div>
 
-**ImageAI** provides abstracted and convenient implementations of state-of-the-art Computer Vision technologies. All of **ImageAI** implementations and code can work on any computer system with moderate CPU capacity. However, the speed of processing for operations like image prediction, object detection and others on CPU is slow and not suitable for real-time applications. To perform real-time Computer Vision operations with high performance, you need to use GPU enabled technologies.
+ImageAI provides abstracted and convenient implementations of state-of-the-art Computer Vision technologies. All of ImageAI implementations and code can work on any computer system with moderate CPU capacity. However, the speed of processing for operations like image prediction, object detection and others on CPU is slow and not suitable for real-time applications. To perform real-time Computer Vision operations with high performance, you need to use GPU enabled technologies.
 
-**ImageAI** uses the PyTorch backbone for it's Computer Vision operations. PyTorch supports both CPUs and GPUs ( Specifically NVIDIA GPUs.  You can get one for your PC or get a PC that has one) for machine learning and artificial intelligence algorithms' implementations.
+ImageAI uses the PyTorch backbone for it's Computer Vision operations. PyTorch supports both CPUs and GPUs ( Specifically NVIDIA GPUs.  You can get one for your PC or get a PC that has one) for machine learning and artificial intelligence algorithms' implementations.
 
 
 
@@ -261,28 +353,28 @@ They must also be aware of approaches and practices recommended by experienced i
 We therefore recommend to everyone that wishes to use ImageAI and other AI tools and resources to read Microsoft's January 2018 publication on AI titled "The Future Computed : Artificial Intelligence and its role in society".
 Kindly follow the link below to download the publication.
 
-[https://blogs.microsoft.com/blog/2018/01/17/future-computed-artificial-intelligence-role-society](https://blogs.microsoft.com/blog/2018/01/17/future-computed-artificial-intelligence-role-society/)
+https://blogs.microsoft.com/blog/2018/01/17/future-computed-artificial-intelligence-role-society/
 
 ### Contact Developer
 <div id="contact"></div>
 
-- **Moses Olafenwa**
-    * _Email:_ guymodscientist@gmail.com
-    * _Twitter:_ [@OlafenwaMoses](https://twitter.com/OlafenwaMoses)
-    * _Medium:_ [@guymodscientist](https://medium.com/@guymodscientist)
-    * _Facebook:_ [moses.olafenwa](https://facebook.com/moses.olafenwa)
-- **John Olafenwa**
-    * _Email:_ johnolafenwa@gmail.com
-    * _Website:_ [https://john.aicommons.science](https://john.aicommons.science)
-    * _Twitter:_ [@johnolafenwa](https://twitter.com/johnolafenwa)
-    * _Medium:_ [@johnolafenwa](https://medium.com/@johnolafenwa)
-    * _Facebook:_ [olafenwajohn](https://facebook.com/olafenwajohn)
+- Moses Olafenwa
+    *  Email: guymodscientist@gmail.com
+    *  Twitter: @OlafenwaMoses
+    *  Medium: @guymodscientist
+    *  Facebook: moses.olafenwa
+- John Olafenwa
+    *  Email: johnolafenwa@gmail.com
+    *  Website: https://john.aicommons.science
+    *  Twitter: @johnolafenwa
+    *  Medium: @johnolafenwa
+    *  Facebook: olafenwajohn
 
 
 ### Citation
 <div id="citation"></div>
 
-You can cite **ImageAI** in your projects and research papers via the **BibTeX** entry below.  
+You can cite ImageAI in your projects and research papers via the BibTeX entry below.  
   
 ```
 @misc {ImageAI,
@@ -294,39 +386,37 @@ You can cite **ImageAI** in your projects and research papers via the **BibTeX**
 }
 ```
 
-
-
  ### References
  <div id="ref"></div>
 
  1. Somshubra Majumdar, DenseNet Implementation of the paper, Densely Connected Convolutional Networks in Keras
-[https://github.com/titu1994/DenseNet](https://github.com/titu1994/DenseNet)
+https://github.com/titu1994/DenseNet
  2. Broad Institute of MIT and Harvard, Keras package for deep residual networks
-[https://github.com/broadinstitute/keras-resnet](https://github.com/broadinstitute/keras-resnet)
+https://github.com/broadinstitute/keras-resnet
  3. Fizyr, Keras implementation of RetinaNet object detection
-[https://github.com/fizyr/keras-retinanet](https://github.com/fizyr/keras-retinanet)
+https://github.com/fizyr/keras-retinanet
  4. Francois Chollet, Keras code and weights files for popular deeplearning models
-[https://github.com/fchollet/deep-learning-models](https://github.com/fchollet/deep-learning-models)
+https://github.com/fchollet/deep-learning-models
  5. Forrest N. et al, SqueezeNet: AlexNet-level accuracy with 50x fewer parameters and <0.5MB model size
-[https://arxiv.org/abs/1602.07360](https://arxiv.org/abs/1602.07360)
+https://arxiv.org/abs/1602.07360
  6. Kaiming H. et al, Deep Residual Learning for Image Recognition
-[https://arxiv.org/abs/1512.03385](https://arxiv.org/abs/1512.03385)
+https://arxiv.org/abs/1512.03385
  7. Szegedy. et al, Rethinking the Inception Architecture for Computer Vision
-[https://arxiv.org/abs/1512.00567](https://arxiv.org/abs/1512.00567)
+https://arxiv.org/abs/1512.00567
  8. Gao. et al, Densely Connected Convolutional Networks
-[https://arxiv.org/abs/1608.06993](https://arxiv.org/abs/1608.06993)
+https://arxiv.org/abs/1608.06993
  9. Tsung-Yi. et al, Focal Loss for Dense Object Detection
-[https://arxiv.org/abs/1708.02002](https://arxiv.org/abs/1708.02002)
+https://arxiv.org/abs/1708.02002
  10. O Russakovsky et al, ImageNet Large Scale Visual Recognition Challenge
-[https://arxiv.org/abs/1409.0575](https://arxiv.org/abs/1409.0575)
+https://arxiv.org/abs/1409.0575
  11. TY Lin et al, Microsoft COCO: Common Objects in Context
-[https://arxiv.org/abs/1405.0312](https://arxiv.org/abs/1405.0312)
+https://arxiv.org/abs/1405.0312
  12. Moses & John Olafenwa, A collection of images of identifiable professionals.
-[https://github.com/OlafenwaMoses/IdenProf](https://github.com/OlafenwaMoses/IdenProf)
+https://github.com/OlafenwaMoses/IdenProf
  13. Joseph Redmon and Ali Farhadi, YOLOv3: An Incremental Improvement.
-[https://arxiv.org/abs/1804.02767](https://arxiv.org/abs/1804.02767)
+https://arxiv.org/abs/1804.02767
  14. Experiencor, Training and Detecting Objects with YOLO3
-[https://github.com/experiencor/keras-yolo3](https://github.com/experiencor/keras-yolo3)
+https://github.com/experiencor/keras-yolo3
  15. MobileNetV2: Inverted Residuals and Linear Bottlenecks
-[https://arxiv.org/abs/1801.04381](https://arxiv.org/abs/1801.04381)
- 16. YOLOv3 in PyTorch > ONNX > CoreML > TFLite [https://github.com/ultralytics/yolov3](https://github.com/ultralytics/yolov3)
+https://arxiv.org/abs/1801.04381
+ 16. YOLOv3 in PyTorch > ONNX > CoreML > TFLite https://github.com/ultralytics/yolov3

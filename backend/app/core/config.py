@@ -6,6 +6,9 @@ class Settings(BaseModel):
     DATA_DIR: str = os.path.join(BASE_DIR, "data")
     UPLOAD_DIR: str = os.path.join(DATA_DIR, "uploads")
     OUTPUT_DIR: str = os.path.join(DATA_DIR, "outputs")
+    # PUBLIC_INTERFACE
+    # Directory for models, can be overridden by env MODEL_DIR (defaults to DATA_DIR/models)
+    MODEL_DIR: str = os.environ.get("MODEL_DIR", os.path.join(DATA_DIR, "models"))
 
 settings = Settings()
 

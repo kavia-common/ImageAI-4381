@@ -1,25 +1,41 @@
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-*.swp
-*.swm
-*.swx
-*.swo
-.env
-.git
-.gitignore
-.vscode
-.idea
-dist/
+# General ignores
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/*.pyd
+**/.Python
+**/*.so
+**/.pytest_cache
+**/.mypy_cache
+**/.ruff_cache
+**/.coverage
+**/.DS_Store
+**/.vscode
+**/.idea
+
+# Python/Build
 build/
-.eggs/
+dist/
 *.egg-info/
-.coverage
-pytest_cache/
+
+# Node/Frontend
 node_modules/
-*.mp4
-*.jpg
-*.png
-*.gif
-*.zip
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-lock.yaml
+package-lock.json
+
+# Envs and secrets
+.env
+.env.*
+!.env.example
+
+# Data/Models/Outputs (we will mount as volumes)
+models/
+data/
+data-images/
+data-videos/
+
+# Vite/React build outputs (if any)
+frontend/dist/
