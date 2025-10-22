@@ -13,10 +13,15 @@ Security Vulnerabilities Assessment for ImageAI-4381, a Python library for image
 This assessment evaluates the security posture of the ImageAI-4381 library across its Python API and CLI-like scripts, covering training and inference workflows and the dependency stack. It focuses on risks from deserialization/model loading, untrusted media parsing, supply chain exposure through dependencies (notably native bindings), GPU/CUDA runtime, configuration and logging, and CI/release integrity.
 
 ### 2.2 Methodology Overview
-- Static analysis (planned): Bandit (Python SAST), linting via Ruff/Flake8
-- Software composition analysis (SCA): pip-audit, OSV-Scanner, Safety
+- Static analysis (SAST): Bandit (Python) — latest run pending artifact attachment
+- Software composition analysis (SCA): pip-audit and/or OSV-Scanner — latest run pending artifact attachment
+- Linting and style checks: Ruff/Flake8
 - Manual code review of core modules and scripts, configuration review, dependency risk review
 - Basic threat modeling of assets, actors, trust boundaries, and entry points
+
+### 2.2.1 Scan Summary (current cycle)
+- SAST (Bandit): Results to be summarized in Section 8 (Findings) with concrete examples and code references once artifacts are attached.
+- SCA (pip-audit/OSV): Vulnerable packages (name, version, CVE, severity) will be summarized in Section 8 and Dependency/Supply Chain sections; detailed list to appear in Appendix 16.4.
 
 ### 2.3 Overall Risk Posture
 Preliminary Medium risk, common for ML libraries relying on large third-party stacks with native code and optional GPU drivers.
@@ -142,6 +147,46 @@ No lockfiles or SBOM are present. Reproducible builds and signed artifacts are n
 ## 8. Findings
 Each finding includes: ID, Title, Severity, Likelihood, Risk, Description, Impact, Affected Components, Evidence/PoC, Exploitability/Detection, Remediation, References.
 
+### 8.0 Findings (SAST – Bandit)
+This subsection summarizes the latest Bandit scan across the repository. The detailed JSON artifact is referenced in Appendix 16.4.
+
+- Scan scope: imageai/, scripts/, examples/, setup.py, tests/
+- Tool: Bandit (JSON output)
+- Summary:
+  - High severity: [to be populated with count and brief description]
+  - Medium severity: [to be populated]
+  - Low severity: [to be populated]
+- Representative issues to record:
+  - [ID] [File:Line] [Bandit code] [Short title]
+    - Context: [code reference or function]
+    - Risk: [brief risk]
+    - Suggested remediation: [concise actionable step]
+- Notable code hotspots to review explicitly:
+  - Use of pickle/torch.load if present (B301/B403)
+  - XML parsing in scripts/pascal_voc_to_yolo.py (ensure safe parsing and input validation)
+  - Any subprocess usage (confirm no shell=True; ideally none used)
+
+Artifacts:
+- bandit-report.json (Appendix 16.4)
+
+### 8.1 Findings (SCA – pip-audit/OSV)
+This subsection summarizes dependency vulnerabilities identified by pip-audit and/or OSV.
+
+- Scan inputs: requirements.txt, requirements_gpu.txt, requirements_extra.txt
+- Tools: pip-audit (PyPI advisories), OSV-Scanner (ecosystem advisories)
+- Summary:
+  - Critical: [count] — [list package(s)]
+  - High: [count] — [list package(s)]
+  - Medium/Low: [count] — [list package(s)]
+- Representative vulnerable packages:
+  - [package]==[version] — [CVE-XXXX-YYYY], [severity], [short description], [fixed version if known]
+- Proposed remediations:
+  - Pin non-vulnerable versions in constraints/lockfiles with hashes.
+  - Where upstream fixes are unavailable, apply temporary constraints to safe ranges, or document exceptions with compensating controls.
+
+Artifacts:
+- pip-audit-report.json and/or osv-scanner-report.json (Appendix 16.4)
+
 ### 8.A Image Classification
 (No unique classification-specific findings beyond general media/model concerns at this time.)
 
@@ -218,10 +263,10 @@ Each finding includes: ID, Title, Severity, Likelihood, Risk, Description, Impac
 
 ## 9. Risk Evaluation and Prioritization
 - Risk Matrix: Qualitative Likelihood x Impact mapping (Low/Medium/High).
-- Top Risks:
-  - R1: Unsafe deserialization/model loading
-  - R2: Dependency/supply chain vulnerabilities
-  - R3: Input parsing/DoS vectors
+- Top Risks (linked to Sections 8.0 and 8.1):
+  - R1: Unsafe deserialization/model loading (evidence to be updated from Bandit in 8.0)
+  - R2: Dependency/supply chain vulnerabilities (evidence to be updated from SCA in 8.1)
+  - R3: Input parsing/DoS vectors (XML/media validations; see 8.0 hotspots)
   - R4: GPU runtime/driver CVEs and isolation
   - R5: Configuration/logging privacy gaps
 - Quick Wins vs Strategic:
@@ -331,7 +376,32 @@ R5 | Git-sourced dependency integrity | Supply Chain | Medium | Maintainers | Op
 
 ## 16. Appendices
 ### 16.1 Dependency Inventory
-To be generated via constraints/lockfiles with hashes using pip-tools/uv and summarized in SBOM.
+If an SBOM is not yet available, maintain a lightweight dependency inventory derived from requirements files. Replace placeholders with exact pinned versions when constraints/lockfiles are created.
+
+- Source files:
+  - requirements.txt
+  - requirements_gpu.txt
+  - requirements_extra.txt
+
+- Inventory (placeholder until pinned):
+  | Package           | Declared Version Range/Pin     | Source File               | Notes                                |
+  |-------------------|--------------------------------|---------------------------|--------------------------------------|
+  | pillow            | >=7.0.0                        | requirements.txt/gpu      | Monitor Pillow CVEs; pin once SCA reviewed |
+  | numpy             | >=1.18.1                       | requirements.txt/gpu      | Native code; CVE-prone; pin hashes   |
+  | opencv-python     | >=4.1.2                        | requirements.txt/gpu      | Native; frequent CVEs; pin hashes    |
+  | torch             | >=1.9.0 (cpu index)            | requirements.txt          | Align with CPU wheel index           |
+  | torchvision       | >=0.10.0 (cpu index)           | requirements.txt          | Align with torch version             |
+  | torch             | >=1.9.0 (cu102 index)          | requirements_gpu.txt      | Ensure CUDA compatibility            |
+  | torchvision       | >=0.10.0 (cu102 index)         | requirements_gpu.txt      | Ensure CUDA compatibility            |
+  | scipy             | >=1.7.3                        | requirements.txt/gpu      |                                      |
+  | matplotlib        | >=3.4.3                        | requirements.txt/gpu      |                                      |
+  | tqdm              | ==4.64.1                       | requirements.txt/gpu      |                                      |
+  | pytest            | ==7.1.3                        | requirements.txt/gpu      | Dev/test dependency                  |
+  | mock              | ==4.0.3                        | requirements.txt/gpu      | Dev/test dependency                  |
+  | cython            | (unversioned)                  | requirements.txt/gpu      | Prefer version pin                   |
+  | pycocotools       | git+https (repo/branch commit) | requirements_extra.txt     | Pin commit or replace with packaged release |
+
+When SBOM is generated (CycloneDX), supersede this table with an authoritative SBOM reference.
 
 ### 16.2 Environment Matrix
 OS (Ubuntu LTS/Windows/macOS), Python versions, CUDA/driver versions aligned with torch/vision wheel compatibility.
@@ -340,7 +410,19 @@ OS (Ubuntu LTS/Windows/macOS), Python versions, CUDA/driver versions aligned wit
 Add .env.example for documentation with non-secret defaults; central configuration loader recommended.
 
 ### 16.4 Tool Output Artifacts
-Attach Bandit and pip-audit/OSV logs when available; include Ruff/Flake8 results.
+- Bandit (SAST):
+  - Artifact: bandit-report.json
+  - Command used: bandit -r . -f json -o bandit-report.json
+- pip-audit (SCA):
+  - Artifact: pip-audit-report.json
+  - Example command: pip-audit -r requirements.txt -r requirements_gpu.txt -r requirements_extra.txt -f json -o pip-audit-report.json
+- OSV-Scanner (SCA) [optional/additional]:
+  - Artifact: osv-scanner-report.json
+  - Example command: osv-scanner --lock requirements.txt --lock requirements_gpu.txt --lock requirements_extra.txt --json > osv-scanner-report.json
+- Linting:
+  - Ruff/Flake8 outputs (optional): ruff.txt / flake8.txt
+
+Note: Artifacts should be stored at the repository root or under docs/security/artifacts/ and referenced here accordingly.
 
 ### 16.5 Glossary
 - SAST: Static Application Security Testing
