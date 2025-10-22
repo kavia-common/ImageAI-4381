@@ -1,126 +1,127 @@
-# Architecture Document
+# Architecture
 
 ## System Overview
-ImageAI-4381 is a Python backend library that provides high-level computer vision capabilities for image classification, object detection, video analysis, and custom model training. It is designed as an importable Python package (imageai) intended for use in scripts, notebooks, and batch pipelines. There is no HTTP server or web API component. The active backend is PyTorch; TensorFlow/Keras code is retained only under imageai_tf_deprecated for archival purposes.
+The system now includes:
+- A FastAPI backend that exposes REST endpoints for image classification, object detection, and video detection, along with a WebSocket endpoint for real-time video job progress. The backend also serves static files for uploads and outputs.
+- A React (Vite + TypeScript) frontend that provides a minimal UI and an API client that integrates with the backend.
 
-PDF export: To render this document to PDF locally, install pandoc and run:
-- Linux/macOS: pandoc -s docs/Architecture.md -o docs/Architecture.pdf
-- Windows (PowerShell): pandoc -s docs/Architecture.md -o docs/Architecture.pdf
+The original Python package (imageai) remains for in-process usage. The new HTTP API wraps these capabilities for web clients and is designed for local development and Docker-based deployment.
 
-## Key Components and Modules
-- Backend guardrails
-  - imageai/backend_check/backend_check.py ensures PyTorch/TorchVision presence and surfaces clear errors if a TensorFlow environment is detected inadvertently.
-- Classification
-  - imageai/Classification/__init__.py implements ImageClassification with support for MobileNetV2, ResNet50, InceptionV3, DenseNet121. It handles model selection, weight loading, preprocessing, and inference.
-- Detection (Images)
-  - imageai/Detection/__init__.py exposes ObjectDetection. It supports:
-    - YOLOv3 and TinyYOLOv3 via internal implementations under imageai/yolov3.
-    - RetinaNet via torchvision.models.detection.retinanet_resnet50_fpn.
-  - Utilities for reading images, preparing inputs, running NMS, drawing boxes/labels, and extracting detected objects.
-- Detection (Video)
-  - imageai/Detection/__init__.py exposes VideoObjectDetection built atop ObjectDetection with per-frame, per-second, and per-minute processing callbacks.
-- Custom Detection
-  - imageai/Detection/Custom/__init__.py provides:
-    - DetectionModelTrainer for YOLOv3/TinyYOLOv3 training on YOLO-formatted datasets.
-    - CustomObjectDetection and CustomVideoObjectDetection for inference using custom-trained models and configuration JSON files.
-  - YOLO utilities and dataset classes under imageai/Detection/Custom/yolo/*.
-- Examples and Utilities
-  - examples/: runnable scripts for classification, detection, video analysis, and training.
-  - scripts/pascal_voc_to_yolo.py: dataset conversion helper.
+## Components
 
-## Model Support Matrix (Classification/Detection/Video)
-- Classification
-  - Backbones: MobileNetV2, ResNet50, InceptionV3, DenseNet121.
-  - Weights: Load from .pth files compatible with the selected backbone.
-- Detection (Images)
-  - YOLOv3 (.pt), TinyYOLOv3 (.pt).
-  - RetinaNet (.pth), using TorchVision’s retinanet_resnet50_fpn with 91 classes (COCO-91 mapping).
-- Detection (Video)
-  - Same detection backends as for images; wrapped in a frame processing pipeline with optional saving of annotated videos.
+### Backend (FastAPI)
+- Entry point: backend/app/main.py
+  - Configures CORS via ALLOW_ORIGINS
+  - Exposes REST routes under /api/v1
+  - Mounts static files under /static to serve uploads and outputs
+  - Registers routers:
+    - classification: backend/app/api/v1/routes_classification.py
+    - detection: backend/app/api/v1/routes_detection.py
+    - video + websocket: backend/app/api/v1/routes_video.py
+- Configuration: backend/app/core/config.py
+  - DATA_DIR, UPLOAD_DIR, OUTPUT_DIR, MODEL_DIR (env override)
+  - OpenAPI tags definition
+- Device handling: backend/app/core/devices.py
+  - get_device_info(): returns CPU/GPU availability and counts
+  - select_device(): returns "cuda" if available, else "cpu"
+- Schemas: backend/app/models/schemas.py
+  - ErrorResponse, ClassificationResponse, DetectionResponse, VideoJobResponse, VideoStatusResponse and related subtypes
+- WebSocket manager: backend/app/websocket/manager.py
+  - Manages client connections per job_id and broadcasts JSON events
+- Services (implementation detail):
+  - classification_service.py, detection_service.py, video_service.py encapsulate core logic and filesystem interactions
 
-## Data Flow Diagrams (high-level)
+### Frontend (React + Vite + TypeScript)
+- API base configuration: frontend/src/config.ts
+  - getApiBaseUrl() from VITE_API_BASE_URL
+  - getWsBaseUrl() derived from API base (http -> ws, https -> wss)
+- API client: frontend/src/api/client.ts
+  - Axios client with baseURL from config
+  - Functions for health, classification, detection, video start, and WebSocket open
+- Types: frontend/src/api/types.ts
+  - Response and message types used by components
+- Components/Pages:
+  - Upload and preview components, pages for classification, detection, and video detection
+
+### Static Files and Paths
+- Backend mounts /static -> backend/app/data
+  - Uploads saved to /static/uploads
+  - Outputs saved to /static/outputs
+- URLs returned by API include these static prefixes so the frontend can render previews directly.
+
+## API Surface
+
+### REST
+- GET /api/v1/health
+- POST /api/v1/classify
+- POST /api/v1/detect
+- POST /api/v1/video/detect
+- GET /api/v1/video/status/{job_id}
+
+### WebSocket
+- WS /ws/video/{job_id}
+
+Refer to docs/APIReference.md for precise request/response schemas and error handling.
+
+## Data Flow (Request Lifecycle)
+
 ```mermaid
 flowchart LR
-  A["Input (image/video)"] --> B["Preprocess (resize, normalize)"]
-  B --> C["Model Inference (Classification/Detection)"]
-  C --> D["Postprocess (NMS, labels, probabilities)"]
-  D --> E["Outputs"]
-  E --> F["Return detections / predictions"]
-  E --> G["Render (boxes, labels)"]
-  G --> H["Save image/video or return array"]
+  FE["React UI"] -->|HTTP JSON| API["FastAPI Routers (/api/v1/*)"]
+  API --> SVC["Services (classification/detection/video)"]
+  SVC --> DEV["Device Selector (cpu/cuda)"]
+  SVC --> FS["Filesystem (/static/uploads, /static/outputs)"]
+  SVC --> ML["ImageAI/PyTorch Models"]
+  ML --> SVC
+  SVC -->|Result JSON| API
+  API --> FE
+  SVC -->|Progress JSON| WS["WebSocket Manager"]
+  WS --> FE
 ```
 
-## Dependency Graph and Third-party Libraries
-- Core frameworks
-  - PyTorch (torch), TorchVision (torchvision) for models and preprocessing pipelines.
-- Vision and numerics
-  - NumPy, Pillow (PIL), OpenCV (cv2), SciPy, Matplotlib.
-- Utilities
-  - tqdm (progress), pytest/mock (testing).
-- Optional extras
-  - pycocotools when training/evaluating detection models with COCO-like tooling.
-- Packaging
-  - setup.py for packaging; dependencies are managed via requirements files (CPU/GPU variants, extras).
+## Deployment and Environments
 
-## Configuration and Environment Variables
-- No mandatory environment variables are required by default.
-- Common variables that users might set externally:
-  - CUDA_VISIBLE_DEVICES to control GPU visibility.
-- If future configuration is needed (e.g., model cache directories), include .env.example and document usage.
+### Local Development
+- Backend: http://localhost:8000 (uvicorn with --reload)
+- Frontend: http://localhost:5173 (Vite dev server)
+- CORS: ALLOW_ORIGINS should include http://localhost:5173
 
-## GPU/CPU Execution Paths
-- The library auto-detects GPU availability (torch.cuda.is_available()):
-  - On GPU: models and tensors move to CUDA device for accelerated inference/training.
-  - On CPU: the pipelines run with CPU tensors; performance is lower but functional.
-- Forcing CPU is supported by useCPU() methods in ImageClassification, ObjectDetection, and custom detection classes.
+### Docker Compose
+- Services: backend, frontend on a shared network
+- Inside network:
+  - Backend: http://backend:8000
+  - Frontend: http://frontend:5173
+- Exposed to host:
+  - Backend: localhost:8000
+  - Frontend: localhost:5173
+- Volumes:
+  - ./data -> /app/app/data
+  - ./models -> /app/app/data/models
 
-## Error Handling and Logging
-- Dependency checks raise RuntimeError with clear guidance (backend_check.py).
-- Input validation:
-  - Model paths are verified and file extension checked (model_extension/extension_check).
-  - Image input types validated; readable extensions enforced (jpg, jpeg, png).
-- Inference and training errors:
-  - Weight loading mismatches raise RuntimeError (“Invalid weights”).
-  - Training logs include progress via tqdm and periodic evaluation (mAP metrics).
-- Warnings:
-  - Emits ResourceWarning for cases like model path changes without reloading.
+### Environment Variables
+- MODEL_DIR: backend models directory (default /app/app/data/models)
+- ALLOW_ORIGINS: comma-separated list (default http://localhost:5173)
+- VITE_API_BASE_URL: frontend API base (Compose default http://backend:8000)
 
-## Performance Considerations
-- Throughput improves significantly with a capable NVIDIA GPU and CUDA-enabled PyTorch.
-- YOLOv3/TinyYOLOv3:
-  - Tiny variant is suited for faster, lower-accuracy scenarios.
-  - NMS and objectness thresholds materially affect performance and result density.
-- RetinaNet via TorchVision provides a robust baseline; ensure matching number of classes and weights.
-- Video processing:
-  - frames_per_second and frame_detection_interval control compute load.
-  - Callbacks can add overhead; use sparingly in high-FPS scenarios.
+## Error Handling
+- REST errors returned as JSON { "detail": string } with appropriate HTTP codes (400, 404, 500)
+- WebSocket errors are pushed as JSON events with type "error"
 
-## Security and Compliance Considerations
-- No network services or persistent credentials are embedded in the codebase.
-- Users should vet third-party weights and datasets for license compliance.
-- When packaging/redistributing models, ensure adherence to model licenses and dataset terms.
-- Avoid executing untrusted code or loading arbitrary weights without validation.
+## Security Considerations
+- CORS restricted by ALLOW_ORIGINS
+- No secrets are committed; .env can override defaults for development
+- Uploaded files are saved under /static/uploads; ensure appropriate access controls if deployed beyond local dev
 
-## Testing Strategy
-- Unit/integration tests under test/ verify:
-  - Classification across supported backbones.
-  - Detection for YOLOv3/TinyYOLOv3 and RetinaNet, including custom object filtering and extraction.
-  - Video detection basic flows are covered in dedicated tests.
-- Local testing recommendation:
-  - Create a virtual environment, install requirements, and run pytest with sample assets.
+## Known Integration Note
+- The frontend startVideoDetection() must call POST /api/v1/video/detect. Ensure the route matches the backend router. If necessary, add a frontend update or a backend alias.
 
-## Future Improvements
-- Weight management:
-  - Built-in downloads, caching, and checksum verification.
-- Training:
-  - Config-driven runs, richer logs/metrics, and automatic artifact/versioning handling.
-- Interoperability:
-  - ONNX export and ONNX Runtime inference paths; potentially TensorRT guidance.
-- Developer Experience:
-  - Adopt Black/isort/Ruff, pre-commit, type checking, and CI matrices for CPU/GPU where feasible.
-- Documentation:
-  - Consolidate API docs and add architecture diagrams for YOLO and RetinaNet internals.
+## Future Extensions
+- Add /api/v1/models to list available models when model registry is exposed
+- Add pagination and filtering for historical jobs
+- Implement authentication and rate limiting for production deployments
 
 ---
-Conversion to PDF: See pandoc command at the beginning of this document.
+Conversion to PDF: To render this document to PDF locally, install pandoc and run:
+- Linux/macOS: pandoc -s docs/Architecture.md -o docs/Architecture.pdf
+- Windows (PowerShell): pandoc -s docs/Architecture.md -o docs/Architecture.pdf
 
